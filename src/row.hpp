@@ -29,6 +29,9 @@ class Row {
 	Row<int_type> operator*(const int_type& coefficient) const;
 	Row<int_type>& operator*=(const int_type& coefficient);
 
+	Row<int_type> operator/(const int_type& coefficient) const;
+	Row<int_type>& operator/=(const int_type& coefficient);
+
 	int_type operator[](const size_t index) const;
 	int_type& operator[](const size_t index);
 
@@ -92,6 +95,21 @@ Row<int_type>& Row<int_type>::operator*=(const int_type& coefficient) {
 	}
 	if(coefficient == 0) {
 		last_non_zero = 0;
+	}
+	return *this;
+}
+
+template<typename int_type>
+Row<int_type> Row<int_type>::operator/(const int_type& coefficient) const {
+	Row retval = Row(*this);
+	retval /= coefficient;
+	return retval;
+}
+
+template<typename int_type>
+Row<int_type>& Row<int_type>::operator/=(const int_type& coefficient) {
+	for(auto i = data.begin(); i != data.end(); ++i) {
+		(*i) /= coefficient;
 	}
 	return *this;
 }

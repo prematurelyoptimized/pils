@@ -112,6 +112,7 @@ public:
 					}
 					// Then, worry about primal feasibility
 					this->optimize(stats);
+					tab->clean_rows();
 					done = false;
 					break;
 				}

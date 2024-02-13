@@ -170,17 +170,25 @@ public:
 	}
 
 private:
-	template<typename iter>
-	void clean_rows(iter begin, iter end) {
-		static_assert(std::is_convertible<decltype(*begin), size_t>::value, "Iterators must iterate over size_t's");
+	void clean_rows(void) {
 		// Check for rows with non-zero gcd
+		for(size_t row_idx = 0; row_idx < rows.size(); ++row_idx) {
+			int_type running_gcd = gcd(lhs_coefficients[row_idx], constants[row_idx]);
+			for(size_t col_idx = 0; col_idx < column_headers.size(); ++col_idx) {
+				running_gcd = gcd(running_gcd, rows[row_idx][col_idx]);
+			}
+			if(running_gcd > 1) {
+				rows[row_idx] /= running_gcd;
+				constants[row_idx] /= running_gcd;
+				lhs_coefficients[row_idx] /= running_gcd;
+				lhs_values[row_idx] /= running_gcd;
+			}
+		}
 
 		// Check for rows with all-but-one gcd
 	}
 
-	template<typename iter>
-	void clean_columns(iter begin, iter end) {
-		static_assert(std::is_convertible<decltype(*begin), size_t>::value, "Iterators must iterate over size_t's");
+	void clean_columns(void) {
 		// Check for constant variables
 
 	}
