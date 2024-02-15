@@ -20,11 +20,15 @@ struct Constraint {
 
 	Constraint(Term<int_type> in_lhs, std::vector<Term<int_type>> in_rhs) :
 		lhs(in_lhs), rhs(in_rhs) {};
+
+	Constraint(std::shared_ptr<Variable<int_type>> in_lhs) :
+		lhs(Term<int_type>(in_lhs, 1)) {};
+
+	Constraint(Term<int_type> in_lhs) :
+		lhs(in_lhs) {};
 };
 
-enum PARSE_STATE { start, op1, op2, term, coeff, varname };
-
-enum SENSE { LESS_THAN, GREATER_THAN, EQUALS };
+enum SENSE { LESS_THAN, GREATER_THAN, EQUALS, OTHER };
 
 template<typename int_type>
 int_type compute_bound(std::vector<Term<int_type>> terms) {

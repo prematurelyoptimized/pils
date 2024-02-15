@@ -14,7 +14,9 @@
 #include"tableau.hpp"
 #include"solutionstats.hpp"
 
-template<typename int_type, int_type(*gcd)(int_type,int_type), int_type(*abs)(int_type)>
+enum PARSE_STATE { start, op1, op2, term, coeff, varname };
+
+template<typename int_type, int_type(*gcd)(int_type, int_type), int_type(*abs)(int_type)>
 class Problem {
 	size_t next_priority = 1;	// Priority 0 is reserved for the objective
 	size_t next_id = 0;			// Used for naming dummy and slack variables
@@ -25,10 +27,19 @@ public:
 	std::optional<Constraint<int_type>> objective;
 	std::unordered_map<std::string, std::shared_ptr<Variable<int_type>>> var_map;
 
-	std::shared_ptr<Variable<int_type>> addVariable(std::string name, int_type upper_bound) {
-		std::shared_ptr<Variable<int_type>> newVar = std::make_shared<Variable<int_type>>(name, upper_bound, false, this->get_next_priority());
-		var_map.emplace(name, newVar);
-		return newVar;
+	std::shared_ptr<Variable<int_type>> addVariable(std::string name, int_type upper_bound, bool allow_dup = false) {
+		auto existing = var_map.find(name);
+		if (existing == var_map.end()) {
+			// Variable does not already exist.  Create it.		
+			std::shared_ptr<Variable<int_type>> newVar = std::make_shared<Variable<int_type>>(name, upper_bound, false, this->get_next_priority());
+			var_map.emplace(name, newVar);
+			return newVar;
+		} else if(allow_dup) {
+			// User allowed duplicate names, so return existing variable
+			return existing->second;
+		} else {
+			throw std::runtime_error("Duplicate variable name");
+		}
 	}
 
 	void addConstraint(const std::string & constraint) {
