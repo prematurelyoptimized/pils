@@ -2,6 +2,13 @@
 #include<cassert>
 #include<cstdlib>
 #include<numeric>
+
+// This is a horrible hack to import the std::gcd functionality under
+// the name "gcd".  Ideally, this would be a template parameter on the
+// problem, but bignum libraries like gmp end up using weird signatures
+// to enable lazy evaluation, which causes template deduction to fail.
+using std::gcd;
+
 #include"../src/problem.hpp"
 #include"../src/constraint.hpp"
 #include"../src/variable.hpp"
@@ -15,7 +22,7 @@ void test_simple_2_variables_single_pivot(void) {
 		x1   + x2 <= 80
 		x1        <= 40
 	*/
-	Problem<long, std::gcd, labs> problem;
+	Problem<long> problem;
 
 	auto x1 = problem.addVariable("x1", 40);
 	auto x2 = problem.addVariable("x2", 100);
@@ -44,7 +51,7 @@ void test_simple_2_variables_multiple_pivots(void) {
 		x1 + x2		>= 6
 		-x1 + 2*x2  >= 0
 	*/
-	Problem<long, std::gcd, labs> problem;
+	Problem<long> problem;
 	
 	auto x1 = problem.addVariable("x1", 50);
 	auto x2 = problem.addVariable("x2", 50);
@@ -75,7 +82,7 @@ void test_simple_infeasible(void) {
 		x1 + x2	   >= 6
 		-x1 + 2*x2 <= 0
 	*/
-	Problem<long, std::gcd, labs> problem;
+	Problem<long> problem;
 	
 	auto x1 = problem.addVariable("x1", 50);
 	auto x2 = problem.addVariable("x2", 50);
@@ -105,7 +112,7 @@ void test_shortest_hamiltonian_path(void) {
 		cf + df + ef	  = 2
 		and all variables are binary
 	*/
-	Problem<long, std::gcd, labs> problem;
+	Problem<long> problem;
 	
 	auto ab = problem.addVariable("ab", 1);
 	auto ad = problem.addVariable("ad", 1);
@@ -145,7 +152,7 @@ void test_shortest_hamiltonian_path(void) {
 }
 
 void test_random_10x5(void) {
-	Problem<long, std::gcd, labs> problem;
+	Problem<long> problem;
 
 	auto x1 = problem.addVariable("x1",8);
 	auto x2 = problem.addVariable("x2",8);

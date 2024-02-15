@@ -10,7 +10,7 @@
 #include"solutionstats.hpp"
 
 // Forward declare Problem class
-template<typename int_type, int_type(*gcd)(int_type,int_type), int_type(*abs)(int_type)>
+template<typename int_type>
 class Problem;
 
 template <typename int_type>
@@ -24,9 +24,9 @@ int_type evaluate(const int_type& constant, const Row<int_type>& row, const std:
 	return retval;
 }
 
-template <typename int_type, int_type(*gcd)(int_type,int_type), int_type(*abs)(int_type)>
+template <typename int_type>
 class Tableau {
-	friend class Problem<int_type,gcd,abs>;
+	friend class Problem<int_type>;
 	std::vector<std::shared_ptr<Variable<int_type>>> column_headers;
 	std::vector<std::shared_ptr<Variable<int_type>>> row_headers;
 	

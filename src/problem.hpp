@@ -16,13 +16,13 @@
 
 enum PARSE_STATE { start, op1, op2, term, coeff, varname };
 
-template<typename int_type, int_type(*gcd)(int_type, int_type), int_type(*abs)(int_type)>
+template<typename int_type>
 class Problem {
 	size_t next_priority = 1;	// Priority 0 is reserved for the objective
 	size_t next_id = 0;			// Used for naming dummy and slack variables
 
 public:
-	std::unique_ptr<Tableau<int_type, gcd, abs>> tab;
+	std::unique_ptr<Tableau<int_type>> tab;
 	std::vector<Constraint<int_type>> problem_constraints;
 	std::optional<Constraint<int_type>> objective;
 	std::unordered_map<std::string, std::shared_ptr<Variable<int_type>>> var_map;
@@ -71,7 +71,7 @@ public:
 		for(auto it = var_map.begin(); it != var_map.end(); ++it) {
 			variables.push_back(it->second);
 		}
-		tab.reset(new Tableau<int_type, gcd, abs>(variables, &stats));
+		tab.reset(new Tableau<int_type>(variables, &stats));
 		// Start by optimizing the objective with an empty set of constraints
 		if(objective.has_value()) {
 			tab->add_constraint(objective.value());
