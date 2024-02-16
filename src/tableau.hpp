@@ -48,7 +48,7 @@ class Tableau {
 			os << tab.row_headers[i]->name << " =\t";
 			os << tab.constants[i] << " +\t";
 			for(size_t j = 0; j < tab.column_headers.size(); ++j) {
-				os << tab.rows[i][j] << "\t";
+				os << tab.rows[i][j] << " \t";
 			}
 			os << "\n";
 		}

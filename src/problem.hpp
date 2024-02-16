@@ -102,7 +102,6 @@ public:
 				if(is_violated(*it)) {
 					// If one is found, add it to the problem and refeasiblize
 					tab->add_constraint(*it);
-					pending_constraints.erase(it);
 					// It could happen that adding this constraint put the first 
 					// non-zero entry into a column.  In that case, we need to do
 					// a little work to ensure every column is lex-positive.
@@ -121,6 +120,7 @@ public:
 							}
 						}
 					}
+					pending_constraints.erase(it);					
 					// Then, worry about primal feasibility
 					this->optimize(stats);
 					tab->clean_rows();
@@ -229,6 +229,10 @@ private:
 				if(tab->lhs_values[it] < 0 || tab->lhs_values[it] > tab->lhs_coefficients[it] * tab->row_headers[it]->upper_bound) {
 					pivot_row = it;
 					pivot_column = find_pivot_column(pivot_row);
+					/*
+					std::cout << "pivot row: " << pivot_row << '\n';
+					std::cout << "pivot column: " << pivot_column << '\n';
+					*/
 					done = false;
 					break;
 				}
@@ -237,12 +241,7 @@ private:
 				break;
 			}
 			// Do the pivot
-			if(abs(tab->column_headers[pivot_column]->upper_bound * tab->rows[pivot_row][pivot_column])
-				< abs(tab->lhs_values[pivot_row])) {
-				tab->toggle(pivot_column);
-			} else {
-				tab->pivot(pivot_row, pivot_column);
-			}
+			tab->pivot(pivot_row, pivot_column);
 		}
 	}
 
