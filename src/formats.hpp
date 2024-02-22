@@ -6,6 +6,7 @@
 #include<stdexcept>
 #include<utility>
 #include<cstdlib>
+#include<limits>
 #include<unordered_map>
 #include"problem.hpp"
 #include"constraint.hpp"
@@ -22,26 +23,26 @@ inline std::string rtrim(std::string s) {
 }
 
 template<typename int_type>
-Term<int_type> parse_term(const std::string& str, 
-						  std::shared_ptr<Variable<int_type>> var, 
-						  const std::unordered_map<std::string, std::pair<Constraint<int_type>, SENSE>>& constraint_map, 
-						  bool invert=false) {
+void parse_term(const std::string& str, 
+				std::shared_ptr<Variable<int_type>> var, 
+				std::unordered_map<std::string, std::pair<Constraint<int_type>, SENSE>>& constraint_map, 
+				bool invert=false) {
 	std::string name = rtrim(str.substr(0,10));
 	long coeff = std::atoi(str.substr(10).c_str());
 	if(coeff != 0) {
-		Constraint<int_type> constraint = constraint_map[name];
+		Constraint<int_type>& constraint = constraint_map.at(name).first;
 		constraint.rhs.push_back(Term<int_type>(var, coeff * (invert ? -1 : 1)));
 	} else {
 		throw std::runtime_error("Could not parse coefficient");
 	}
 }
 
-template<typename int_type, int_type(*gcd)(int_type,int_type), int_type(*abs)(int_type)>
-Problem<int_type, gcd, abs> read_mps(std::string filename) {
-	Problem<int_type, gcd, abs> retval;
+template<typename int_type>
+Problem<int_type> read_mps(std::string filename) {
+	Problem<int_type> retval;
 	
 	std::ifstream file(filename);
-	if(file.is_open) {
+	if(file.is_open()) {
 		std::string line;
 		MPS_STATE state = NONE;
 		std::unordered_map<std::string, std::pair<Constraint<int_type>, SENSE>> constraint_map;
@@ -67,11 +68,19 @@ Problem<int_type, gcd, abs> read_mps(std::string filename) {
 				state = BOUNDS;
 				continue;
 			}
+			if(line.substr(0,6) == "ENDATA" || line.substr(0,6) == "endata") {
+				state = NONE;
+				continue;
+			}
+			if(line.substr(4,4) == "MARK" || line.substr(4,4) == "mark") {
+				// Ignore marker lines
+				continue;
+			}
 			switch(state) {
 				case NONE:
 					// Skip any junk at the beginning that isn't in a section
 					continue;
-				case ROWS:
+				case ROWS: {
 					SENSE sense;
 					if(line[1] == 'N' || line[1] == 'n') {
 						sense = OTHER;
@@ -84,34 +93,82 @@ Problem<int_type, gcd, abs> read_mps(std::string filename) {
 					} else {
 						throw std::runtime_error("Unrecognized sense");
 					}
-					std::string name = rtrim(line.substr(5));
-					constraint_map.emplace(name, std::make_pair(Constraint<int_type>(retval.addVariable(name, 0)), sense));
+					std::string row_name = rtrim(line.substr(4));
+					constraint_map.emplace(row_name, std::make_pair(Constraint<int_type>(std::make_shared<Variable<int_type>>(row_name, 0)), sense));
 					break;
-				case COLUMNS:
-					std::string name = rtrim(line.substr(5,15));
-					std::shared_ptr<Variable<int_type>> var = retval.addVariable(name, 0, true);
+				}
+				case COLUMNS: {
+					std::string col_name = rtrim(line.substr(4,10));
+					std::shared_ptr<Variable<int_type>> var = retval.addVariable(col_name, 0, true);
 					
-					parse_term(line.substr(15,25), var, constraint_map);
+					parse_term(line.substr(14,25), var, constraint_map);
 					if(line.size() > 40) {
-						parse_term(line.substr(40), var, constraint_map);
+						parse_term(line.substr(39), var, constraint_map);
 					}
 					break;
-				case RHS:
-					parse_term(line.substr(15,25), std::make_shared<Variable<int_type>>("ONE", 1, 1), constraint_map, true);
+				}
+				case RHS: {
+					parse_term(line.substr(14,25), std::make_shared<Variable<int_type>>("ONE", 1, 1), constraint_map, true);
 					if(line.size() > 40) {
-						parse_term(line.substr(40), std::make_shared<Variable<int_type>>("ONE", 1, 1), constraint_map, true);
+						parse_term(line.substr(39), std::make_shared<Variable<int_type>>("ONE", 1, 1), constraint_map, true);
 					}
 					break;
-				case BOUNDS:
-					htodi
+				}
+				case BOUNDS: {
+					std::string name = rtrim(line.substr(14,10));
+					long coeff = std::atol(line.substr(24).c_str());
+					if(line.substr(1,2) == "UP" || line.substr(1,2) == "up") {
+						if(coeff < 0) {
+							throw std::runtime_error("Negative upper bounds not supported");
+						}
+						std::shared_ptr<Variable<int_type>> var = retval.getVariable(name);
+						var->upper_bound = coeff;
+					} else if (line.substr(1,2) == "LO" || line.substr(1,2) == "lo" || line.substr(1,2) == "LI" || line.substr(1,2) == "li") {
+						if(coeff != 0) {
+							throw std::runtime_error("Non-zero lower bounds not supported");
+						}
+					} else {
+						throw std::runtime_error("Unrecognized bound");
+					}
 					break;
+				}
 			}
 		}
+
 		// Update bounds on constraints and make sure sense is correct
-		nthdai
+		for(auto it = constraint_map.begin(); it != constraint_map.end(); ++it) {
+			SENSE sense = it->second.second;
+			Constraint<int_type>& constraint = it->second.first;
+			if(sense == LESS_THAN) {
+				// Remember that the MPS format puts constants on the right-hand side,
+				// But our convention is to put them on the left-hand side.
+				for(auto inner_it = constraint.rhs.begin(); inner_it != constraint.rhs.end(); ++inner_it) {
+					inner_it->coefficient = inner_it->coefficient * -1;
+				}
+			}
+			if(sense == OTHER) {
+				// This is the objective function
+				if(retval.objective.has_value()) {
+					// According to the spec, the first non-constraining row is the
+					// objective function and the rest can be ignored.
+					continue;
+				} else {
+					retval.addObjective(constraint);
+				}
+			} else {
+				if(sense == EQUALS) {
+					constraint.lhs.variable->upper_bound = 0;
+				} else {
+					constraint.lhs.variable->upper_bound = compute_bound(constraint.rhs);
+				}
+				retval.addConstraint(constraint);
+			}
+		}
 	} else {
 		throw std::runtime_error("Failed to open file");
 	}
+
+	return retval;
 }
 
 #endif

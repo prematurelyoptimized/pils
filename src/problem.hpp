@@ -28,8 +28,11 @@ public:
 	std::unordered_map<std::string, std::shared_ptr<Variable<int_type>>> var_map;
 
 	std::shared_ptr<Variable<int_type>> addVariable(std::string name, int_type upper_bound, bool allow_dup = false) {
+		if(name == "OBJ") {
+			throw std::runtime_error("OBJ is a reserved variable name");
+		}
 		auto existing = var_map.find(name);
-		if (existing == var_map.end()) {
+		if(existing == var_map.end()) {
 			// Variable does not already exist.  Create it.		
 			std::shared_ptr<Variable<int_type>> newVar = std::make_shared<Variable<int_type>>(name, upper_bound, false, this->get_next_priority());
 			var_map.emplace(name, newVar);
@@ -40,6 +43,14 @@ public:
 		} else {
 			throw std::runtime_error("Duplicate variable name");
 		}
+	}
+
+	std::shared_ptr<Variable<int_type>> getVariable(std::string name) {
+		auto existing = var_map.find(name);
+		if(existing == var_map.end()) {
+			throw std::runtime_error("Variable not found");
+		}
+		return existing->second;
 	}
 
 	void addConstraint(const std::string & constraint) {

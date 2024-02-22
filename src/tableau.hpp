@@ -4,6 +4,7 @@
 #include<vector>
 #include<algorithm>
 #include<ostream>
+#include<stdexcept>
 #include"variable.hpp"
 #include"row.hpp"
 #include"constraint.hpp"
@@ -150,6 +151,17 @@ public:
 				constants[row] += constants[pivot_row] * (multiplier / denominator);
 			}
 			lhs_values[row] = evaluate(constants[row], rows[row], column_headers);
+		}
+
+		// Check if the variable that we just pivoted out of the basis is constant
+		if(column_headers[column]->upper_bound == 0) {
+			size_t end = column_headers.size() - 1;
+			column_headers[column] = column_headers.back();
+			column_headers.pop_back();
+			for(auto& row : rows) {
+				row[column] = row[end];
+				row[end] = 0;
+			}
 		}
 	}
 

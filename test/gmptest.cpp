@@ -141,5 +141,5 @@ int main(void) {
 	test_random_10x5();
 	test_random_40x20();
 
-	return 1;
+	return 0;
 }
