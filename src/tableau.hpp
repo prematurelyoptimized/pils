@@ -207,10 +207,11 @@ private:
 		size_t index = 0;
 		for(auto it = column_headers.begin(); it != column_headers.end(); ) {
 			if((*it)->upper_bound == 0) {
-				it.erase();
+				it = column_headers.erase(it);
 			} else {
 				(*it)->is_basic = false;
 				(*it)->index = index++;
+				++it;
 			}
 		}
 	}
