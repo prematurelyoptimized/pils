@@ -91,19 +91,28 @@ public:
 					tab->toggle(term->variable->index);
 				}
 			}
-		}	
+		}
 
 		// Next, introduce the problem constraints 1-by-1 as they are violated
-		std::vector<Constraint<int_type>> pending_constraints = problem_constraints;
+		add_constraints(problem_constraints, stats);
+
+		for(size_t it = 0; it < tab->row_headers.size(); ++it) {
+			tab->row_headers[it]->value = tab->lhs_values[it] / tab->lhs_coefficients[it];
+		}
+		return stats;
+	}
+
+private:
+	void add_constraints(std::vector<Constraint<int_type>> pending_constraints, SolutionStats& stats) {
 		bool done = false;
 		while(!done) {
 			/*
 			std::cout << *tab << '\n';
 			for(auto var : tab->column_headers) {
-				std::cout << var->name << '\t' << var->value << '\t' << var->priority << '\n';
+				std::cout << var->index << '\t' << var->name << '\t' << var->value << '\t' << var->priority << '\n';
 			}
 			for(auto var : tab->row_headers) {
-				std::cout << var->name << '\t' << tab->lhs_values[var->index] << '\t' << var->priority << '\n';
+				std::cout << var->index << '\t' << var->name << '\t' << tab->lhs_values[var->index] << '\t' << var->priority << '\n';
 			}
 			*/
 
@@ -140,14 +149,8 @@ public:
 				}
 			}
 		}
-
-		for(size_t it = 0; it < tab->row_headers.size(); ++it) {
-			tab->row_headers[it]->value = tab->lhs_values[it] / tab->lhs_coefficients[it];
-		}
-		return stats;
 	}
 
-private:
 	bool is_violated(const Constraint<int_type>& constraint) {
 		int_type rhs_value = 0;
 		int_type rhs_denom = 1;

@@ -157,6 +157,7 @@ public:
 		if(column_headers[column]->upper_bound == 0) {
 			size_t end = column_headers.size() - 1;
 			column_headers[column] = column_headers.back();
+			column_headers[column]->index = column;
 			column_headers.pop_back();
 			for(auto& row : rows) {
 				row[column] = row[end];

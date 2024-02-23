@@ -41,12 +41,11 @@ class Row {
 
 	std::vector<int_type> data;
 	size_t last_non_zero;
-
 };
 
 template<typename int_type>
 Row<int_type>::Row(void) {
-	// Default construction of all fields is sufficient
+	last_non_zero = 0;
 }
 
 template<typename int_type>
@@ -74,7 +73,7 @@ Row<int_type>& Row<int_type>::operator+=(const Row<int_type>& other) {
 	}
 	for(size_t i = 0; i <= other.last_non_zero; ++i) {
 		data[i] += other[i];
-		if(data[i] != 0) {
+		if(i > last_non_zero && data[i] != 0) {
 			last_non_zero = i;
 		}
 	}
@@ -126,6 +125,8 @@ template<typename int_type>
 int_type& Row<int_type>::operator[](const size_t index) {
 	if(index >= data.size()) {
 		data.resize(index+1);
+	}
+	if(index > last_non_zero) {
 		last_non_zero = index;
 	}
 	return data[index];
