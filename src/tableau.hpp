@@ -74,6 +74,8 @@ public:
 		for(auto it = constraint.rhs.begin(); it != constraint.rhs.end(); ++it) {
 			if(*(it->variable) == ONE<int_type>) {
 				constant += lhs_coefficient * it->coefficient;
+			} else if(it->variable->upper_bound == 0) {
+				continue;
 			} else if(!it->variable->is_basic) {
 				new_row[it->variable->index] += lhs_coefficient * it->coefficient;
 			} else {
@@ -201,16 +203,15 @@ private:
 		// Check for rows with all-but-one gcd
 	}
 
-	void clean_columns(void) {
-		// Check for constant variables
-
-	}
-
 	void init() {
 		size_t index = 0;
-		for(auto& variable: column_headers) {
-			variable->is_basic = false;
-			variable->index = index++;
+		for(auto it = column_headers.begin(); it != column_headers.end(); ) {
+			if((*it)->upper_bound == 0) {
+				it.erase();
+			} else {
+				(*it)->is_basic = false;
+				(*it)->index = index++;
+			}
 		}
 	}
 };
