@@ -103,6 +103,95 @@ public:
 	}
 
 private:
+	void divisibility_change_of_variable(std::shared_ptr<Variable<int_type>> old_var, int_type factor, SolutionStats& stats) {
+		int_type bound = old_var->upper_bound / factor;  // We specificially want integer division here, even though (especially because) we can't prove divisibility
+		if(factor * bound != old_var->upper_bound) {
+			++stats.divisibility_bound_improvements;
+		}
+		if(old_var->is_basic) {
+			tab->lhs_coefficients[old_var->index] *= factor;
+		} else {
+			for(auto& row : tab->rows) {
+				row[old_var->index] *= factor;
+			}
+		}
+		if(old_var->is_slack) {
+			old_var->upper_bound = bound;
+			tab->update_bound(old_var, bound);
+		} else {
+			std::ostringstream varname;
+  			varname << "s" << get_next_id();
+			std::shared_ptr<Variable<int_type>> new_var = std::make_shared<Variable<int_type>>(varname.str(), bound, true, old_var->priority);	
+			new_var->index = old_var->index;
+			new_var->is_basic = old_var->is_basic;
+			new_var->pegged_bound = old_var->pegged_bound;		
+			old_var->terms.push_back(Term<int_type>(new_var, factor));
+			if(old_var->is_basic) {
+				tab->row_headers[old_var->index] = new_var;
+				this->optimize(stats);  // Because we may now be at an infeasible basis
+			} else {
+				if(bound == 0) {
+					tab->delete_column(old_var->index);
+				} else {
+					tab->column_headers[old_var->index] = new_var;
+					tab->update_bound(new_var, bound);
+				}
+			}
+		}
+	}
+
+	void clean_rows(SolutionStats& stats) {
+		for(size_t row_idx = 0; row_idx < tab->rows.size(); ++row_idx) {
+			std::vector<int_type> left_running_gcds;
+			left_running_gcds.resize(tab->column_headers.size() + 2);
+
+			// Check for rows with non-zero gcd
+			left_running_gcds[0] = tab->constants[row_idx];
+			left_running_gcds[1] = gcd(tab->lhs_coefficients[row_idx], tab->constants[row_idx]);
+			for(size_t col_idx = 0; col_idx < tab->column_headers.size(); ++col_idx) {
+				left_running_gcds[col_idx + 2] = gcd(left_running_gcds[col_idx + 1], tab->rows[row_idx][col_idx]);
+			}
+			if(left_running_gcds.back() > 1) {
+				int_type& running_gcd = left_running_gcds.back();
+				tab->rows[row_idx] /= running_gcd;
+				tab->constants[row_idx] /= running_gcd;
+				tab->lhs_coefficients[row_idx] /= running_gcd;
+				tab->lhs_values[row_idx] /= running_gcd;
+				for(auto& it : left_running_gcds) {
+					it /= running_gcd;
+				}
+			}
+
+			// Check for rows with all-but-one gcd
+			if(left_running_gcds[left_running_gcds.size() - 2] > 1) {
+				divisibility_change_of_variable(tab->column_headers.back(), left_running_gcds[left_running_gcds.size() - 2], stats);
+				clean_rows(stats);
+				return;
+			}
+			int_type right_running_gcd = tab->rows[row_idx][tab->column_headers.size() - 1];
+			for(size_t idx = left_running_gcds.size() - 2; idx > 1; --idx) {
+				int_type candidate_gcd = gcd(right_running_gcd, left_running_gcds[idx-1]);
+				if(candidate_gcd > 1) {
+					divisibility_change_of_variable(tab->column_headers[idx - 2], candidate_gcd, stats);
+					clean_rows(stats);
+					return;
+				}
+				right_running_gcd = gcd(right_running_gcd, tab->rows[row_idx][idx - 2]);
+			}
+			if(gcd(right_running_gcd, left_running_gcds[0]) > 1) {
+				// Everything has a common factor except the constant term, so there
+				// cannot be any solutions
+				throw std::runtime_error("Problem is infeasible");
+			}
+			right_running_gcd = gcd(right_running_gcd, tab->constants[row_idx]);
+			if(right_running_gcd > 1) {
+				divisibility_change_of_variable(tab->row_headers[row_idx], right_running_gcd, stats);
+				clean_rows(stats);
+				return;
+			}
+		}
+	}
+
 	void add_constraints(std::vector<Constraint<int_type>> pending_constraints, SolutionStats& stats) {
 		bool done = false;
 		while(!done) {
@@ -143,7 +232,6 @@ private:
 					pending_constraints.erase(it);					
 					// Then, worry about primal feasibility
 					this->optimize(stats);
-					tab->clean_rows();
 					done = false;
 					break;
 				}
@@ -257,6 +345,7 @@ private:
 			// Do the pivot
 			tab->pivot(pivot_row, pivot_column);
 		}
+		this->clean_rows(stats);
 	}
 
 	Constraint<int_type> parse_constraint(const char* str) {

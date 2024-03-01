@@ -4,7 +4,6 @@
 #include<vector>
 #include<algorithm>
 #include<ostream>
-#include<stdexcept>
 #include"variable.hpp"
 #include"row.hpp"
 #include"constraint.hpp"
@@ -115,6 +114,27 @@ public:
 		}
 	}
 
+	void delete_column(size_t index) {
+		size_t end = column_headers.size() - 1;
+		column_headers[index] = column_headers.back();
+		column_headers[index]->index = index;
+		column_headers.pop_back();
+		for(auto& row : rows) {
+			row[index] = row[end];
+			row[end] = 0;
+		}
+	}
+
+	void update_bound(std::shared_ptr<Variable<int_type>> var, int_type bound) {
+		if(!var->is_basic) {
+			// If the variable is basic, then the worst that happens is we become infeasible
+			for(size_t it = 0; it < row_headers.size(); ++it) {
+				// We need to update the lhs_values table
+				lhs_values[it] = evaluate(constants[it], rows[it], column_headers);
+			}
+		}
+	}
+
 	void pivot(size_t pivot_row, size_t column) {
 		if (lhs_values[pivot_row] >= 0) {
 			row_headers[pivot_row]->value = row_headers[pivot_row]->upper_bound;
@@ -157,14 +177,7 @@ public:
 
 		// Check if the variable that we just pivoted out of the basis is constant
 		if(column_headers[column]->upper_bound == 0) {
-			size_t end = column_headers.size() - 1;
-			column_headers[column] = column_headers.back();
-			column_headers[column]->index = column;
-			column_headers.pop_back();
-			for(auto& row : rows) {
-				row[column] = row[end];
-				row[end] = 0;
-			}
+			delete_column(column);
 		}
 	}
 
@@ -185,24 +198,6 @@ public:
 	}
 
 private:
-	void clean_rows(void) {
-		// Check for rows with non-zero gcd
-		for(size_t row_idx = 0; row_idx < rows.size(); ++row_idx) {
-			int_type running_gcd = gcd(lhs_coefficients[row_idx], constants[row_idx]);
-			for(size_t col_idx = 0; col_idx < column_headers.size(); ++col_idx) {
-				running_gcd = gcd(running_gcd, rows[row_idx][col_idx]);
-			}
-			if(running_gcd > 1) {
-				rows[row_idx] /= running_gcd;
-				constants[row_idx] /= running_gcd;
-				lhs_coefficients[row_idx] /= running_gcd;
-				lhs_values[row_idx] /= running_gcd;
-			}
-		}
-
-		// Check for rows with all-but-one gcd
-	}
-
 	void init() {
 		size_t index = 0;
 		for(auto it = column_headers.begin(); it != column_headers.end(); ) {
