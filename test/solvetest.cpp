@@ -36,9 +36,9 @@ void test_simple_2_variables_single_pivot(void) {
 
 	std::cout << *(problem.tab) << '\n';
 
-	assert(x1->value == 20);
-	assert(x2->value == 60);
-	assert(obj->value == -180);
+	assert(x1->getValue() == 20);
+	assert(x2->getValue() == 60);
+	assert(obj->getValue() == -180);
 }
 
 void test_simple_2_variables_multiple_pivots(void) {
@@ -67,9 +67,9 @@ void test_simple_2_variables_multiple_pivots(void) {
 
 	std::cout << *(problem.tab) << '\n';
 
-	assert(x1->value == 4);
-	assert(x2->value == 2);
-	assert(obj->value == 2);
+	assert(x1->getValue() == 4);
+	assert(x2->getValue() == 2);
+	assert(obj->getValue() == 2);
 }
 
 void test_simple_infeasible(void) {
@@ -137,18 +137,18 @@ void test_shortest_hamiltonian_path(void) {
 
 	std::cout << *(problem.tab) << '\n';
 
-	assert(ab->value == 1);
-	assert(bd->value == 1);
-	assert(de->value == 1);
-	assert(ef->value == 1);
-	assert(cf->value == 1);
+	assert(ab->getValue() == 1);
+	assert(bd->getValue() == 1);
+	assert(de->getValue() == 1);
+	assert(ef->getValue() == 1);
+	assert(cf->getValue() == 1);
 
-	assert(be->value == 0);
-	assert(ad->value == 0);
-	assert(ce->value == 0);
-	assert(df->value == 0);
+	assert(be->getValue() == 0);
+	assert(ad->getValue() == 0);
+	assert(ce->getValue() == 0);
+	assert(df->getValue() == 0);
 
-	assert(obj->value == 14);
+	assert(obj->getValue() == 14);
 }
 
 void test_random_10x5(void) {
@@ -177,13 +177,13 @@ void test_random_10x5(void) {
 
 	std::cout << *(problem.tab) << '\n';
 
-	assert(x1->value == 2);
-	assert(x2->value == 2);
-	assert(x3->value == 5);
-	assert(x4->value == 3);
-	assert(x5->value == 5);
+	assert(x1->getValue() == 2);
+	assert(x2->getValue() == 2);
+	assert(x3->getValue() == 5);
+	assert(x4->getValue() == 3);
+	assert(x5->getValue() == 5);
 
-	assert(obj->value == 79);
+	assert(obj->getValue() == 79);
 }
 
 int main(void) {

@@ -124,7 +124,10 @@ private:
 			std::shared_ptr<Variable<int_type>> new_var = std::make_shared<Variable<int_type>>(varname.str(), bound, true, old_var->priority);	
 			new_var->index = old_var->index;
 			new_var->is_basic = old_var->is_basic;
-			new_var->pegged_bound = old_var->pegged_bound;		
+			new_var->pegged_bound = old_var->pegged_bound;	
+			if(new_var->pegged_bound == UPPER) {
+				new_var->value = bound;
+			}	
 			old_var->terms.push_back(Term<int_type>(new_var, factor));
 			if(old_var->is_basic) {
 				tab->row_headers[old_var->index] = new_var;
@@ -179,15 +182,15 @@ private:
 				right_running_gcd = gcd(right_running_gcd, tab->rows[row_idx][idx - 2]);
 			}
 			if(gcd(right_running_gcd, left_running_gcds[0]) > 1) {
-				// Everything has a common factor except the constant term, so there
-				// cannot be any solutions
-				throw std::runtime_error("Problem is infeasible");
-			}
-			right_running_gcd = gcd(right_running_gcd, tab->constants[row_idx]);
-			if(right_running_gcd > 1) {
 				divisibility_change_of_variable(tab->row_headers[row_idx], right_running_gcd, stats);
 				clean_rows(stats);
 				return;
+			}
+			right_running_gcd = gcd(right_running_gcd, tab->constants[row_idx]);
+			if(right_running_gcd > 1) {
+				// Everything has a common factor except the constant term, so there
+				// cannot be any solutions
+				throw std::runtime_error("Problem is infeasible");
 			}
 		}
 	}

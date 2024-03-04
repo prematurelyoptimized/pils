@@ -33,13 +33,13 @@ void test_random_10x5(void) {
 
 	std::cout << *(problem.tab) << '\n';
 
-	assert(x1->value == 2);
-	assert(x2->value == 2);
-	assert(x3->value == 5);
-	assert(x4->value == 3);
-	assert(x5->value == 5);
+	assert(x1->getValue() == 2);
+	assert(x2->getValue() == 2);
+	assert(x3->getValue() == 5);
+	assert(x4->getValue() == 3);
+	assert(x5->getValue() == 5);
 
-	assert(obj->value == 79);
+	assert(obj->getValue() == 79);
 }
 
 void test_random_40x20(void) {
@@ -113,28 +113,28 @@ void test_random_40x20(void) {
 
 	std::cout << *(problem.tab) << '\n';
 
-	assert(x1->value == 5);
-	assert(x2->value == 6);
-	assert(x3->value == 2);
-	assert(x4->value == 13);
-	assert(x5->value == 12);
-	assert(x6->value == 7);
-	assert(x7->value == 12);
-	assert(x8->value == 5);
-	assert(x9->value == 13);
-	assert(x10->value == 7);
-	assert(x11->value == 2);
-	assert(x12->value == 6);
-	assert(x13->value == 4);
-	assert(x14->value == 10);
-	assert(x15->value == 9);
-	assert(x16->value == 0);
-	assert(x17->value == 9);
-	assert(x18->value == 5);
-	assert(x19->value == 10);
-	assert(x20->value == 8);
+	assert(x1->getValue() == 5);
+	assert(x2->getValue() == 6);
+	assert(x3->getValue() == 2);
+	assert(x4->getValue() == 13);
+	assert(x5->getValue() == 12);
+	assert(x6->getValue() == 7);
+	assert(x7->getValue() == 12);
+	assert(x8->getValue() == 5);
+	assert(x9->getValue() == 13);
+	assert(x10->getValue() == 7);
+	assert(x11->getValue() == 2);
+	assert(x12->getValue() == 6);
+	assert(x13->getValue() == 4);
+	assert(x14->getValue() == 10);
+	assert(x15->getValue() == 9);
+	assert(x16->getValue() == 0);
+	assert(x17->getValue() == 9);
+	assert(x18->getValue() == 5);
+	assert(x19->getValue() == 10);
+	assert(x20->getValue() == 8);
 
-	assert(obj->value == 31109);
+	assert(obj->getValue() == 31109);
 }
 
 int main(void) {
