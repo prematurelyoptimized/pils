@@ -98,6 +98,7 @@ public:
 		}
 
 		constraint.lhs.variable->index = row_headers.size();
+		constraint.lhs.variable->is_basic = true;
 		row_headers.push_back(constraint.lhs.variable);
 		rows.push_back(new_row);
 		lhs_coefficients.push_back(lhs_coefficient);
@@ -123,6 +124,22 @@ public:
 			row[index] = row[end];
 			row[end] = 0;
 		}
+	}
+
+	void delete_row(size_t index) {
+		size_t end = row_headers.size() - 1;
+		
+		rows[index] = rows[end];
+		lhs_coefficients[index] = lhs_coefficients[end];
+		lhs_values[index] = lhs_values[end];
+		constants[index] = constants[end];
+		row_headers[index] = row_headers[end];
+
+		rows.pop_back();
+		lhs_coefficients.pop_back();
+		lhs_values.pop_back();
+		constants.pop_back();
+		row_headers.pop_back();
 	}
 
 	void update_bound(std::shared_ptr<Variable<int_type>> var, int_type bound) {

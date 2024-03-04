@@ -13,7 +13,7 @@ COLUMNS
 RHS
     RHS       c1        -31013
 BOUNDS
- UP bnd       x0        9999999999999
- UP bnd       x1        9999999999999
- UP bnd       x2        9999999999999
+ UP bnd       x0        999999999
+ UP bnd       x1        999999999
+ UP bnd       x2        999999999
 ENDATA

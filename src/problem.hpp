@@ -96,13 +96,65 @@ public:
 		// Next, introduce the problem constraints 1-by-1 as they are violated
 		add_constraints(problem_constraints, stats);
 
-		for(size_t it = 0; it < tab->row_headers.size(); ++it) {
-			tab->row_headers[it]->value = tab->lhs_values[it] / tab->lhs_coefficients[it];
+		// Finally, ensure integrality of the solution
+		while(true) {
+			bool done = true;
+			// We only want to iterate over the rows that exist *right now*, 
+			// not including any that get added as cuts over the course of the loop.
+			const size_t num_rows = tab->row_headers.size();
+			for(size_t it = 1; it < num_rows; ++it) {
+				if(tab->lhs_values[it] % tab->lhs_coefficients[it] == 0) {
+					tab->row_headers[it]->value = tab->lhs_values[it] / tab->lhs_coefficients[it];
+				} else {
+					this->add_gomory_cut(it);
+					done = false;
+				}
+			}
+			if(!done) {
+				this->optimize(stats);
+			} else {
+				break;
+			}
 		}
 		return stats;
 	}
 
 private:
+	void add_gomory_cut(size_t cut_row) {
+		std::vector<Term<int_type>> rhs;
+		
+		// Both the C++ standard as well as GMP round toward 0 during integer division.
+		// We, however, want to round toward positive/negative infinity, so we have to 
+		// patch each place we do division.
+
+		int_type new_constant = tab->constants[cut_row] % tab->lhs_coefficients[cut_row];
+		if(new_constant > 0) {
+			new_constant -= tab->lhs_coefficients[cut_row];
+		}
+		rhs.emplace_back(std::make_shared<Variable<int_type>>("ONE",1,1), new_constant);
+
+		int_type bound = new_constant;
+		for(size_t it = 0; it < tab->column_headers.size(); ++it) {
+			int_type coeff = tab->rows[cut_row][it] % tab->lhs_coefficients[cut_row];			
+			if(coeff < 0) {
+				coeff += tab->lhs_coefficients[cut_row];
+			}
+			bound += coeff * tab->column_headers[it]->upper_bound;
+			rhs.emplace_back(tab->column_headers[it], coeff);
+		}
+		
+		if(bound < 0) {
+			// This single constraint is unsatisfiable
+			throw std::runtime_error("Problem is infeasible");
+		}
+
+		std::ostringstream varname;
+		varname << "s" << get_next_id();
+		std::shared_ptr<Variable<int_type>> new_var = std::make_shared<Variable<int_type>>(varname.str(), bound, true, get_next_priority());	
+
+		tab->add_constraint(Constraint<int_type>(new_var, rhs));
+	}
+
 	void divisibility_change_of_variable(std::shared_ptr<Variable<int_type>> old_var, int_type factor, SolutionStats& stats) {
 		int_type bound = old_var->upper_bound / factor;  // We specificially want integer division here, even though (especially because) we can't prove divisibility
 		if(factor * bound != old_var->upper_bound) {
@@ -144,6 +196,13 @@ private:
 	}
 
 	void clean_rows(SolutionStats& stats) {
+		for(size_t row_idx = 0; row_idx < tab->rows.size();/*empty*/) {
+			if(tab->row_headers[row_idx]->is_slack) {
+				tab->delete_row(row_idx);
+			} else {
+				++row_idx;
+			}
+		}
 		for(size_t row_idx = 0; row_idx < tab->rows.size(); ++row_idx) {
 			std::vector<int_type> left_running_gcds;
 			left_running_gcds.resize(tab->column_headers.size() + 2);
@@ -470,7 +529,7 @@ private:
 		}
 		std::ostringstream varname;
   		varname << "s" << get_next_id();
-		std::shared_ptr<Variable<int_type>> lhs = std::make_shared<Variable<int_type>>(varname.str(), ub, true, 0);
+		std::shared_ptr<Variable<int_type>> lhs = std::make_shared<Variable<int_type>>(varname.str(), ub, false, 0);
 		return Constraint<int_type>(lhs, rhs);
 	}
 
