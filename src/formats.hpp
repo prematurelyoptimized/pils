@@ -38,7 +38,7 @@ void parse_term(const std::string& str,
 }
 
 template<typename int_type>
-Problem<int_type> read_mps(std::string filename) {
+Problem<int_type> read_mps(std::string filename, int_type default_upper_bound = 0) {
 	Problem<int_type> retval;
 	
 	std::ifstream file(filename);
@@ -99,7 +99,7 @@ Problem<int_type> read_mps(std::string filename) {
 				}
 				case COLUMNS: {
 					std::string col_name = rtrim(line.substr(4,10));
-					std::shared_ptr<Variable<int_type>> var = retval.addVariable(col_name, 0, true);
+					std::shared_ptr<Variable<int_type>> var = retval.addVariable(col_name, default_upper_bound, true);
 					
 					parse_term(line.substr(14,25), var, constraint_map);
 					if(line.size() > 40) {

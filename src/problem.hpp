@@ -53,6 +53,14 @@ public:
 		return existing->second;
 	}
 
+	std::vector<std::string> getVarNames() {
+		std::vector<std::string> retval;
+		for(auto it = var_map.begin(); it != var_map.end(); ++it) {
+			retval.push_back(it->first);
+		}
+		return retval;
+	}
+
 	void addConstraint(const std::string & constraint) {
 		addConstraint(this->parse_constraint(constraint.c_str()));
 	}
