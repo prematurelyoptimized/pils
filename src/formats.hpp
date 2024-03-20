@@ -101,14 +101,14 @@ Problem<int_type> read_mps(std::string filename, int_type default_upper_bound = 
 					std::string col_name = rtrim(line.substr(4,10));
 					std::shared_ptr<Variable<int_type>> var = retval.addVariable(col_name, default_upper_bound, true);
 					
-					parse_term(line.substr(14,25), var, constraint_map);
+					parse_term(line.substr(14,35), var, constraint_map);
 					if(line.size() > 40) {
 						parse_term(line.substr(39), var, constraint_map);
 					}
 					break;
 				}
 				case RHS: {
-					parse_term(line.substr(14,25), std::make_shared<Variable<int_type>>("ONE", 1, 1), constraint_map, true);
+					parse_term(line.substr(14,35), std::make_shared<Variable<int_type>>("ONE", 1, 1), constraint_map, true);
 					if(line.size() > 40) {
 						parse_term(line.substr(39), std::make_shared<Variable<int_type>>("ONE", 1, 1), constraint_map, true);
 					}

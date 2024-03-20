@@ -115,7 +115,7 @@ Row<int_type>& Row<int_type>::operator/=(const int_type& coefficient) {
 
 template<typename int_type>
 int_type Row<int_type>::operator[](const size_t index) const {
-	if(index <= last_non_zero) {
+	if(index <= last_non_zero && data.size() > 0) {
 		return data[index];
 	}
 	return 0;

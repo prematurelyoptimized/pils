@@ -235,32 +235,34 @@ private:
 				}
 			}
 
-			// Check for rows with all-but-one gcd
-			if(left_running_gcds[left_running_gcds.size() - 2] > 1) {
-				divisibility_change_of_variable(tab->column_headers.back(), left_running_gcds[left_running_gcds.size() - 2], stats);
-				clean_rows(stats);
-				return;
-			}
-			int_type right_running_gcd = tab->rows[row_idx][tab->column_headers.size() - 1];
-			for(size_t idx = left_running_gcds.size() - 2; idx > 1; --idx) {
-				int_type candidate_gcd = gcd(right_running_gcd, left_running_gcds[idx-1]);
-				if(candidate_gcd > 1) {
-					divisibility_change_of_variable(tab->column_headers[idx - 2], candidate_gcd, stats);
+			// Check for rows with all-but-one gcd (except the objective function)
+			if(row_idx > 0) {
+				if(left_running_gcds[left_running_gcds.size() - 2] > 1) {
+					divisibility_change_of_variable(tab->column_headers.back(), left_running_gcds[left_running_gcds.size() - 2], stats);
 					clean_rows(stats);
 					return;
 				}
-				right_running_gcd = gcd(right_running_gcd, tab->rows[row_idx][idx - 2]);
-			}
-			if(gcd(right_running_gcd, left_running_gcds[0]) > 1) {
-				divisibility_change_of_variable(tab->row_headers[row_idx], right_running_gcd, stats);
-				clean_rows(stats);
-				return;
-			}
-			right_running_gcd = gcd(right_running_gcd, tab->constants[row_idx]);
-			if(right_running_gcd > 1) {
-				// Everything has a common factor except the constant term, so there
-				// cannot be any solutions
-				throw std::runtime_error("Problem is infeasible");
+				int_type right_running_gcd = tab->rows[row_idx][tab->column_headers.size() - 1];
+				for(size_t idx = left_running_gcds.size() - 2; idx > 1; --idx) {
+					int_type candidate_gcd = gcd(right_running_gcd, left_running_gcds[idx-1]);
+					if(candidate_gcd > 1) {
+						divisibility_change_of_variable(tab->column_headers[idx - 2], candidate_gcd, stats);
+						clean_rows(stats);
+						return;
+					}
+					right_running_gcd = gcd(right_running_gcd, tab->rows[row_idx][idx - 2]);
+				}
+				if(gcd(right_running_gcd, left_running_gcds[0]) > 1) {
+					divisibility_change_of_variable(tab->row_headers[row_idx], right_running_gcd, stats);
+					clean_rows(stats);
+					return;
+				}
+				right_running_gcd = gcd(right_running_gcd, tab->constants[row_idx]);
+				if(right_running_gcd > 1) {
+					// Everything has a common factor except the constant term, so there
+					// cannot be any solutions
+					throw std::runtime_error("Problem is infeasible");
+				}
 			}
 		}
 	}
