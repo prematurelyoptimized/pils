@@ -124,6 +124,9 @@ public:
 				break;
 			}
 		}
+		// All the variables had their values set in the preceding loop, so
+		// we only have to set the value of the objective function now.
+		tab->row_headers[0]->value = tab->lhs_values[0] / tab->lhs_coefficients[0];
 		return stats;
 	}
 
