@@ -20,6 +20,7 @@ int main(int argc, char** argv) {
 
 	std::cout << "Used " << res.pivots << " pivots\n";
 	std::cout << "Improved " << res.divisibility_bound_improvements << " bounds\n";
+	std::cout << "Added " << res.gomory_cuts << " gomory cuts\n";
 
 	return 0;
 }

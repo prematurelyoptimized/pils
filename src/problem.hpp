@@ -9,12 +9,39 @@
 #include<algorithm>
 #include<optional>
 #include<iostream>
+#include<ctime>
 #include"constraint.hpp"
 #include"variable.hpp"
 #include"tableau.hpp"
 #include"solutionstats.hpp"
 
 enum PARSE_STATE { start, op1, op2, term, coeff, varname };
+
+	// Both the C++ standard as well as GMP round toward 0 during integer division.
+	// We, however, want to round toward positive/negative infinity, so we have to 
+	// add our own methods for doing so.
+
+template<typename int_type>
+int_type mod_pos_inf(const int_type& numerator, const int_type& denominator) {
+	// Returns the remainder after integer division gets rounded to positive infinity
+	// (So, in particular, this always returns a non-positive number)
+	int_type retval = numerator % denominator;
+	if(retval > 0) {
+		retval -= denominator;
+	}
+	return retval;
+}
+
+template<typename int_type>
+int_type mod_neg_inf(const int_type& numerator, const int_type& denominator) {
+	// Returns the remainder after integer division gets rounded to negative infinity
+	// (So, in particular, this always returns a non-negative number)
+	int_type retval = numerator % denominator;
+	if(retval < 0) {
+		retval += denominator;
+	}
+	return retval;
+}
 
 template<typename int_type>
 class Problem {
@@ -85,6 +112,10 @@ public:
 	}
 
 	SolutionStats solve(void) {
+		std::cout << "Starting solve of problem with " << var_map.size() << " variables ";
+		std::cout << "and " << problem_constraints.size() << " constraints.\n";
+		time_t starttime = time(NULL);
+
 		SolutionStats stats;
 		std::vector<std::shared_ptr<Variable<int_type>>> variables;
 		for(auto it = var_map.begin(); it != var_map.end(); ++it) {
@@ -99,10 +130,16 @@ public:
 					tab->toggle(term->variable->index);
 				}
 			}
+		} else {
+			// If no constraint was specified, use a default all-0 objective
+			tab->add_constraint(Constraint<int_type>(std::make_shared<Variable<int_type>>("OBJ",0)));
 		}
 
 		// Next, introduce the problem constraints 1-by-1 as they are violated
 		add_constraints(problem_constraints, stats);
+
+		std::cout << "Initial solve completed in " << difftime(time(NULL), starttime) << " seconds.\n";
+		//std::cout << "Objective value is " << ((double) tab->lhs_values[0])/((double) tab->lhs_coefficients[0]) << '\n';
 
 		// Finally, ensure integrality of the solution
 		while(true) {
@@ -115,6 +152,7 @@ public:
 					tab->row_headers[it]->value = tab->lhs_values[it] / tab->lhs_coefficients[it];
 				} else {
 					this->add_gomory_cut(it);
+					++stats.gomory_cuts;
 					done = false;
 				}
 			}
@@ -122,6 +160,17 @@ public:
 				this->optimize(stats);
 			} else {
 				break;
+			}
+
+			if(difftime(time(NULL), starttime) > 10) {
+				std::cout << "=============================================\n";
+				std::cout << "Elapsed time is " << difftime(time(NULL), starttime) << ".\n";
+				//std::cout << "Objective value is " << ((double) tab->lhs_values[0])/((double) tab->lhs_coefficients[0]) << '\n';
+				std::cout << "Used " << stats.pivots << " pivots\n";
+				std::cout << "Improved " << stats.divisibility_bound_improvements << " bounds\n";
+				std::cout << "Added " << stats.gomory_cuts << " gomory cuts\n";
+				//starttime = time(NULL);
+				time(&starttime); 
 			}
 		}
 		// All the variables had their values set in the preceding loop, so
@@ -133,27 +182,48 @@ public:
 private:
 	void add_gomory_cut(size_t cut_row) {
 		std::vector<Term<int_type>> rhs;
-		
-		// Both the C++ standard as well as GMP round toward 0 during integer division.
-		// We, however, want to round toward positive/negative infinity, so we have to 
-		// patch each place we do division.
 
-		int_type new_constant = tab->constants[cut_row] % tab->lhs_coefficients[cut_row];
-		if(new_constant > 0) {
-			new_constant -= tab->lhs_coefficients[cut_row];
-		}
-		rhs.emplace_back(std::make_shared<Variable<int_type>>("ONE",1,1), new_constant);
-
-		int_type bound = new_constant;
+		int_type constant = tab->constants[cut_row];
+		int_type constant_postadd = 0;
+		int_type bound = 0;
 		for(size_t it = 0; it < tab->column_headers.size(); ++it) {
-			int_type coeff = tab->rows[cut_row][it] % tab->lhs_coefficients[cut_row];			
-			if(coeff < 0) {
-				coeff += tab->lhs_coefficients[cut_row];
+			if(tab->column_headers[it]->pegged_bound == LOWER) {
+				int_type coeff = mod_neg_inf(tab->rows[cut_row][it], tab->lhs_coefficients[cut_row]);			
+				bound += coeff * tab->column_headers[it]->upper_bound;
+				rhs.emplace_back(tab->column_headers[it], coeff);
+			} else {
+				// If the variable is pegged to the upper bound, then we have to implicitly
+				// switch to the slack between the variable and its upper bound (since the
+				// slack is 0) and then switch back.  The result of this is just to modify
+				// the constant a little bit.
+				
+				// We have to explicitly cast the first argument in this call because some
+				// big integer libraries (like GMP) lazily evaluate expressions and so the
+				// types of the two arguments may not technically be the same, causing a
+				// template deduction failure.
+				int_type coeff = mod_neg_inf((int_type)-tab->rows[cut_row][it], tab->lhs_coefficients[cut_row]);			
+				
+				constant += tab->rows[cut_row][it] * tab->column_headers[it]->upper_bound;
+				constant_postadd += coeff * tab->column_headers[it]->upper_bound;
+
+				// The coefficient on this x_i is negative, so we don't need to bump up the bound
+				rhs.emplace_back(tab->column_headers[it], -coeff);
 			}
-			bound += coeff * tab->column_headers[it]->upper_bound;
-			rhs.emplace_back(tab->column_headers[it], coeff);
 		}
+		int_type new_constant = mod_pos_inf(constant, tab->lhs_coefficients[cut_row]) + constant_postadd;
+		rhs.emplace_back(std::make_shared<Variable<int_type>>("ONE",1,1), new_constant);
 		
+		/*
+		std::cout << *tab << '\n';
+		std::cout << cut_row << '\n';
+		std::cout << "0 <= "; 
+		for(auto term : rhs) {
+			std::cout << term.coefficient << "*" << term.variable->name << " + ";
+		}
+		std::cout << '\n';
+		*/
+
+		bound += new_constant;
 		if(bound < 0) {
 			// This single constraint is unsatisfiable
 			throw std::runtime_error("Problem is infeasible");
