@@ -26,6 +26,14 @@ struct Constraint {
 
 	Constraint(Term<int_type> in_lhs) :
 		lhs(in_lhs) {};
+
+	friend std::ostream& operator<<(std::ostream& os, const Constraint& con) {
+		os << con.lhs.coefficient << '*' << con.lhs.variable->name << " = ";
+		for(auto iter = con.rhs.begin(); iter != con.rhs.end(); ++iter) {
+			os << iter->coefficient << '*' << iter->variable->name << " + ";
+		}
+		return os;
+	}
 };
 
 enum SENSE { LESS_THAN, GREATER_THAN, EQUALS, OTHER };

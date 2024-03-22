@@ -134,12 +134,23 @@ public:
 		lhs_values[index] = lhs_values[end];
 		constants[index] = constants[end];
 		row_headers[index] = row_headers[end];
+		row_headers[index]->index = index;
 
 		rows.pop_back();
 		lhs_coefficients.pop_back();
 		lhs_values.pop_back();
 		constants.pop_back();
 		row_headers.pop_back();
+	}
+
+	void remove_slack_rows(void) {
+		for(size_t row_idx = 0; row_idx < rows.size();/*empty*/) {
+			if(row_headers[row_idx]->is_slack) {
+				delete_row(row_idx);
+			} else {
+				++row_idx;
+			}
+		}
 	}
 
 	void update_bound(std::shared_ptr<Variable<int_type>> var, int_type bound) {

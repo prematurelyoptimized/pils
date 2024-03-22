@@ -1,14 +1,11 @@
 #include<iostream>
 #include<cassert>
-#include<numeric>
-
-using std::gcd;
-
+#include<gmpxx.h>
 #include"../src/problem.hpp"
 #include"../src/formats.hpp"
 
 void test_ej(void) {
-	Problem<long long> problem = read_mps<long long>("test/ej.mps");
+	Problem<mpz_class> problem = read_mps<mpz_class>("test/ej.mps");
 
 	SolutionStats res = problem.solve();
 
@@ -22,7 +19,7 @@ void test_ej(void) {
 	assert(x1->getValue() == 1);
 	assert(x0->getValue() == 25507);
 
-	assert(res.divisibility_bound_improvements == 10);
+	assert(res.divisibility_bound_improvements == 57);
 }
 
 int main(void) {
