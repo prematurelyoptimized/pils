@@ -15,6 +15,8 @@
 #include"tableau.hpp"
 #include"solutionstats.hpp"
 
+#include<cassert>
+
 enum PARSE_STATE { start, op1, op2, term, coeff, varname };
 
 long PRIMES[] = {2, 3, 5, 7, 11};
@@ -227,10 +229,13 @@ private:
 				rhs.emplace_back(tab->column_headers[col_idx], tab->rows[cut_row][col_idx]);
 			}
 		}
-		rhs.emplace_back(std::make_shared<Variable<int_type>>("ONE",1,1), (int_type)-lb);
+		// We specifically want round-toward-0 semantics here
+		ub /= factor;
+		lb /= factor;
+		rhs.emplace_back(std::make_shared<Variable<int_type>>("ONE",1,1), -factor*lb);
 
 		Constraint<int_type> new_constraint(Term<int_type>(new_slack_variable(ub-lb), factor), rhs);
-		std::cout << "Divisibility cut: \n" << new_constraint << '\n';
+		//std::cout << "Divisibility cut: \n" << new_constraint << '\n';
 		tab->add_constraint(new_constraint);
 	}
 

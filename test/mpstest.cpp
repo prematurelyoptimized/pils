@@ -19,7 +19,7 @@ void test_ej(void) {
 	assert(x1->getValue() == 1);
 	assert(x0->getValue() == 25507);
 
-	assert(res.divisibility_bound_improvements == 57);
+	assert(res.divisibility_bound_improvements == 42);
 }
 
 int main(void) {

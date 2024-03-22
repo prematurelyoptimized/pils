@@ -72,17 +72,17 @@ public:
 		int_type constant = int_type(0);
 		for(auto it = constraint.rhs.begin(); it != constraint.rhs.end(); ++it) {
 			if(*(it->variable) == ONE<int_type>) {
-				constant += lhs_coefficient * it->coefficient;
+				constant += (lhs_coefficient / constraint.lhs.coefficient) * it->coefficient;
 			} else if(it->variable->upper_bound == 0) {
 				continue;
 			} else if(!it->variable->is_basic) {
-				new_row[it->variable->index] += lhs_coefficient * it->coefficient;
+				new_row[it->variable->index] += (lhs_coefficient / constraint.lhs.coefficient) * it->coefficient;
 			} else {
-				// We really need to compute new_row + it->coefficient*rows[row_index].
+				// We really need to compute new_row + (it->coefficient/constraint.lhs.coefficient)*rows[row_index].
 				// However, getting the denominators right is tricky.
 				const int_type& r = it->coefficient;
 				const int_type& x = lhs_coefficients[it->variable->index];
-				const int_type& y = lhs_coefficient;
+				const int_type& y = lhs_coefficient / constraint.lhs.coefficient;
 				const int_type& gcdrx = gcd(r,x);
 				const int_type& biggcd = gcd(y, x/gcdrx);
 				const int_type& a = x/(gcdrx*biggcd);
@@ -90,7 +90,7 @@ public:
 
 				new_row *= a;
 				new_row += rows[it->variable->index] * b;
-				lhs_coefficient = a * y;				
+				lhs_coefficient *= a;				
 				
 				constant *= a;
 				constant += constants[it->variable->index] * b;
