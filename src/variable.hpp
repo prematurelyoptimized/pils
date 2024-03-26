@@ -15,7 +15,8 @@ struct Variable{
 	int_type upper_bound;
 	bool is_slack;
 	size_t priority;
-	
+	int_type expected_value;	// If the problem has a known solution, setting this value accordingly will cause the solving code to do validity checks along the way
+
 	bool is_basic;
 	Bound pegged_bound;
 	size_t index;
@@ -26,11 +27,11 @@ struct Variable{
 	int_type value;
 	
 	Variable(std::string name, int_type upper_bound, bool is_slack, size_t priority) :
-		name(name), upper_bound(upper_bound), is_slack(is_slack), priority(priority), is_basic(false), pegged_bound(LOWER), value(int_type(0)) {};
-	Variable(std::string name, int_type upper_bound, int_type value) :
-		name(name), upper_bound(upper_bound), value(value), is_slack(false), priority(0), is_basic(false), pegged_bound(LOWER) {};
+		name(name), upper_bound(upper_bound), is_slack(is_slack), priority(priority), is_basic(false), pegged_bound(LOWER), value(int_type(0)), expected_value(int_type(-1)) {};
+	Variable(std::string name, int_type upper_bound, int_type value, int_type ex_value = int_type(-1)) :
+		name(name), upper_bound(upper_bound), value(value), is_slack(false), priority(0), is_basic(false), pegged_bound(LOWER), expected_value(ex_value) {};
 	Variable(std::string name, int_type upper_bound) :
-		name(name), upper_bound(upper_bound), is_slack(false), priority(0), is_basic(false), pegged_bound(LOWER), value(int_type(0)) {};
+		name(name), upper_bound(upper_bound), is_slack(false), priority(0), is_basic(false), pegged_bound(LOWER), value(int_type(0)), expected_value(int_type(-1)) {};
 
 	int_type getValue() {
 		if(terms.size() > 0) {
@@ -43,7 +44,7 @@ struct Variable{
 		return value;
 	}
 
-	static Variable<int_type> ONE;
+	static const std::shared_ptr<Variable<int_type>> ONE;
 
 	bool operator==(Variable const& other) const {
 		return name == other.name &&
@@ -53,7 +54,7 @@ struct Variable{
 };
 
 template<typename int_type>
-const Variable<int_type> ONE("ONE", 1, 1);
+const std::shared_ptr<Variable<int_type>> Variable<int_type>::ONE = std::make_shared<Variable<int_type>>("ONE", 1, int_type(1), int_type(1));
 
 
 template<typename int_type>

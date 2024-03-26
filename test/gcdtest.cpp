@@ -45,6 +45,6 @@ void kitchen_sink(void) {
 }
 
 int main(void) {
-	//all_but_one_gcd();
+	all_but_one_gcd();
 	kitchen_sink();
 }

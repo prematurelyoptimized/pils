@@ -51,6 +51,7 @@ template<typename int_type>
 class Problem {
 	size_t next_priority = 1;	// Priority 0 is reserved for the objective
 	size_t next_id = 0;			// Used for naming dummy and slack variables
+	bool solution_tracking_enabled = false;
 
 public:
 	std::unique_ptr<Tableau<int_type>> tab;
@@ -116,15 +117,34 @@ public:
 	}
 
 	SolutionStats solve(void) {
-		std::cout << "Starting solve of problem with " << var_map.size() << " variables ";
-		std::cout << "and " << problem_constraints.size() << " constraints.\n";
-		time_t starttime = time(NULL);
-
 		SolutionStats stats;
 		std::vector<std::shared_ptr<Variable<int_type>>> variables;
 		for(auto it = var_map.begin(); it != var_map.end(); ++it) {
 			variables.push_back(it->second);
 		}
+		if(variables.size() == 0) {
+			return stats;
+		}
+		// Check whether we need to check validity of a solution at every step.
+		if(variables[0]->expected_value >= 0) {
+			solution_tracking_enabled = true;
+		}
+		for(const auto& it : variables) {
+			if((solution_tracking_enabled && it->expected_value < 0) 
+					|| (!solution_tracking_enabled && it->expected_value >= 0)) {
+				throw std::runtime_error("Some variables (but not all) have expected value set");
+			}
+		}
+
+		std::cout << "Starting solve of problem with " << variables.size() << " variables ";
+		std::cout << "and " << problem_constraints.size() << " constraints";
+		if(solution_tracking_enabled) {
+			std::cout << " with solution tracking";
+		}
+		std::cout << ".\n";
+		time_t starttime = time(NULL);
+		time_t lastcheckpoint = starttime;
+
 		tab.reset(new Tableau<int_type>(variables, &stats));
 		// Start by optimizing the objective with an empty set of constraints
 		if(objective.has_value()) {
@@ -181,16 +201,16 @@ public:
 				break;
 			}
 
-			if(difftime(time(NULL), starttime) > 10) {
+			if(difftime(time(NULL), lastcheckpoint) >= 10) {
 				std::cout << "=============================================\n";
-				std::cout << "Elapsed time is " << difftime(time(NULL), starttime) << ".\n";
-				//std::cout << "Objective value is " << ((double) tab->lhs_values[0])/((double) tab->lhs_coefficients[0]) << '\n';
+				std::cout << "Elapsed time is " << difftime(time(NULL), starttime) << "\n";
+				std::cout << "Objective value is " << tab->lhs_values[0] << '/' << tab->lhs_coefficients[0] << '\n';
 				std::cout << "Made " << stats.pivots << " pivots\n";
 				std::cout << "Improved " << stats.divisibility_bound_improvements << " bounds\n";
 				std::cout << "Added " << stats.divisibility_cuts << " divisibility cuts\n";
 				std::cout << "Added " << stats.gomory_cuts << " gomory cuts\n";
 				//starttime = time(NULL);
-				time(&starttime); 
+				time(&lastcheckpoint); 
 			}
 		}
 		// All the variables had their values set in the preceding loop, so
@@ -200,14 +220,16 @@ public:
 	}
 
 private:
-	std::shared_ptr<Variable<int_type>> new_slack_variable(int_type bound) {
-		return new_slack_variable(bound, this->get_next_priority());
+	std::shared_ptr<Variable<int_type>> new_slack_variable(int_type bound, int_type expected_value) {
+		return new_slack_variable(bound, this->get_next_priority(), expected_value);
 	}
 
-	std::shared_ptr<Variable<int_type>> new_slack_variable(int_type bound, size_t priority) {
+	std::shared_ptr<Variable<int_type>> new_slack_variable(int_type bound, size_t priority, int_type expected_value) {
 		std::ostringstream varname;
 		varname << "auto_slack_" << this->get_next_id();
-		return std::make_shared<Variable<int_type>>(varname.str(), bound, true, priority);
+		std::shared_ptr<Variable<int_type>> retval = std::make_shared<Variable<int_type>>(varname.str(), bound, true, priority);
+		retval->expected_value = expected_value;
+		return retval;
 	}
 
 	void add_divisibility_cut(size_t cut_row, long factor) {
@@ -215,9 +237,9 @@ private:
 		int_type ub = 0;
 		std::vector<Term<int_type>> rhs;
 		if(tab->constants[cut_row] % factor != 0) {
-			lb += tab->constants[cut_row] < 0 ? tab->constants[cut_row] : 0;
-			ub += tab->constants[cut_row] < 0 ? 0 : tab->constants[cut_row];
-			rhs.emplace_back(std::make_shared<Variable<int_type>>("ONE",1,1), tab->constants[cut_row]);
+			lb += tab->constants[cut_row];
+			ub += tab->constants[cut_row];
+			rhs.emplace_back(Variable<int_type>::ONE, tab->constants[cut_row]);
 		}
 		for(size_t col_idx = 0; col_idx < tab->column_headers.size(); ++col_idx) {
 			if(tab->rows[cut_row][col_idx] % factor != 0) {
@@ -232,9 +254,31 @@ private:
 		// We specifically want round-toward-0 semantics here
 		ub /= factor;
 		lb /= factor;
-		rhs.emplace_back(std::make_shared<Variable<int_type>>("ONE",1,1), -factor*lb);
+		rhs.emplace_back(Variable<int_type>::ONE, -factor*lb);
 
-		Constraint<int_type> new_constraint(Term<int_type>(new_slack_variable(ub-lb), factor), rhs);
+		int_type ex_value = -1;
+		// Begin debug stuff
+		if(solution_tracking_enabled) {
+			int_type sum = 0;
+			for(const auto& it : rhs) {
+				sum += it.coefficient * it.variable->expected_value;
+			}
+			if(sum % factor != 0 || sum < 0 || sum > (ub-lb)*factor) {
+				std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+				std::cout << factor << " does not divide " << "0 <= " << sum << " <= " << (ub-lb)*factor << '\n';
+				std::cout << *tab << '\n';
+				std::cout << cut_row << '\n';
+				for(const auto& it : tab->column_headers) {
+					std::cout << it->name << ": " << it->expected_value << '\n';
+				}
+				for(const auto& it : tab->row_headers) {
+					std::cout << it->name << ": " << it->expected_value << '\n';
+				}
+				throw std::runtime_error("Bad division cut generated");
+			}
+			ex_value = sum / factor;
+		}
+		Constraint<int_type> new_constraint(Term<int_type>(new_slack_variable(ub-lb, ex_value), factor), rhs);
 		//std::cout << "Divisibility cut: \n" << new_constraint << '\n';
 		tab->add_constraint(new_constraint);
 	}
@@ -244,10 +288,12 @@ private:
 
 		int_type constant = tab->constants[cut_row];
 		int_type constant_postadd = 0;
+		int_type ub = 0;
 		for(size_t it = 0; it < tab->column_headers.size(); ++it) {
 			if(tab->column_headers[it]->pegged_bound == LOWER) {
-				int_type coeff = -mod_pos_inf(tab->rows[cut_row][it], tab->lhs_coefficients[cut_row]);			
+				int_type coeff = mod_neg_inf(tab->rows[cut_row][it], tab->lhs_coefficients[cut_row]);			
 				rhs.emplace_back(tab->column_headers[it], coeff);
+				ub += tab->column_headers[it]->upper_bound * coeff;
 			} else {
 				// If the variable is pegged to the upper bound, then we have to implicitly
 				// switch to the slack between the variable and its upper bound (since the
@@ -258,31 +304,43 @@ private:
 				// big integer libraries (like GMP) lazily evaluate expressions and so the
 				// types of the two arguments may not technically be the same, causing a
 				// template deduction failure.
-				int_type coeff = -mod_pos_inf((int_type)-tab->rows[cut_row][it], tab->lhs_coefficients[cut_row]);			
+				int_type coeff = mod_neg_inf((int_type)-tab->rows[cut_row][it], tab->lhs_coefficients[cut_row]);			
 				
 				constant += tab->rows[cut_row][it] * tab->column_headers[it]->upper_bound;
 				constant_postadd += coeff * tab->column_headers[it]->upper_bound;
-
-				// The coefficient on this x_i is negative, so we don't need to bump up the bound
+				
 				rhs.emplace_back(tab->column_headers[it], -coeff);
 			}
 		}
-		int_type new_constant = -mod_neg_inf(constant, tab->lhs_coefficients[cut_row]) + constant_postadd;
-		rhs.emplace_back(std::make_shared<Variable<int_type>>("ONE",1,1), new_constant);
+		int_type new_constant = mod_pos_inf(constant, tab->lhs_coefficients[cut_row]) + constant_postadd;
+		rhs.emplace_back(Variable<int_type>::ONE, new_constant);
+		ub += new_constant;
 
 		// Don't apply bound strengthening because it makes things worse.
 
-		// Compute trivial bound for lhs
-		int_type bound = 0;
-		for(const auto& it : rhs) {
-			bound += it.variable->upper_bound * it.coefficient;
+		// Do a debug check against the expected solution
+		int_type ex_value = -1;
+		if(solution_tracking_enabled) {
+			int_type sum = 0;
+			for(const auto& it: rhs) {
+				sum += it.coefficient * it.variable->expected_value;
+			}
+			if(sum < 0 || sum > ub) {
+				std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+				std::cout << "0 <= " << sum << " <= " << ub << '\n';
+				std::cout << *tab << '\n';
+				std::cout << cut_row << '\n';
+				for(const auto& it : tab->column_headers) {
+					std::cout << it->name << ": " << it->expected_value << '\n';
+				}
+				for(const auto& it : tab->row_headers) {
+					std::cout << it->name << ": " << it->expected_value << '\n';
+				}
+				throw std::runtime_error("Bad gomory cut generated");
+			}
+			ex_value = sum;
 		}
-		if(bound < 0) {
-			// This single constraint is unsatisfiable
-			throw std::runtime_error("Problem is infeasible");
-		}
-
-		std::shared_ptr<Variable<int_type>> new_var = new_slack_variable(bound);	
+		std::shared_ptr<Variable<int_type>> new_var = new_slack_variable(ub, ex_value);	
 
 		Constraint<int_type> new_constraint(new_var, rhs);
 		//std::cout << "gomory cut:\n" << new_constraint << '\n';
@@ -302,11 +360,17 @@ private:
 				row[old_var->index] *= factor;
 			}
 		}
+		if(old_var->expected_value != -1 && old_var->expected_value % factor != 0) {
+			std::cout << old_var->name << " (" << old_var->expected_value << ") is not divisible by " << factor << '\n';
+			throw std::runtime_error("Bad divisibility relation");
+		}
+		int_type ex_value = old_var->expected_value == -1 ? int_type(-1) : old_var->expected_value / factor;
 		if(old_var->is_slack) {
+			old_var->expected_value = ex_value;
 			old_var->upper_bound = bound;
 			tab->update_bound(old_var, bound);
 		} else {
-			std::shared_ptr<Variable<int_type>> new_var = new_slack_variable(bound, old_var->priority);	
+			std::shared_ptr<Variable<int_type>> new_var = new_slack_variable(bound, old_var->priority, ex_value);	
 			new_var->index = old_var->index;
 			new_var->is_basic = old_var->is_basic;
 			new_var->pegged_bound = old_var->pegged_bound;	
@@ -479,6 +543,9 @@ private:
 				}
 			}
 		}
+		if(tab->column_headers[column1]->priority < comparison_point || tab->column_headers[column2]->priority < comparison_point) {
+			return tab->column_headers[column1]->priority > tab->column_headers[column2]->priority;
+		}
 		return retval;
 	}
 
@@ -517,7 +584,7 @@ private:
 			/*
 			std::cout << *tab << "\n";
 			for(auto var : tab->row_headers) {
-				std::cout << var->name << '\t' << var->value << '\n';
+				std::cout << var->name << '\t' << tab->lhs_values[var->index] << '/' << tab->lhs_coefficients[var->index] << '\n';
 			}
 			for(auto var : tab->column_headers) {
 				std::cout << var->name << '\t' << var->value << '\n';
@@ -610,7 +677,7 @@ private:
 						if(character == '*') {
 							state = varname;
 						} else {
-							rhs.push_back(Term<int_type>(std::make_shared<Variable<int_type>>("ONE", 1, 1), buffer_coeff));
+							rhs.push_back(Term<int_type>(Variable<int_type>::ONE, buffer_coeff));
 							negated = (character == '-');
 							buffer_coeff = 1;
 						}
@@ -639,7 +706,7 @@ private:
 			std::shared_ptr<Variable<int_type>> variable;
 			if(state == coeff) {
 				buffer >> buffer_coeff;
-				variable = std::make_shared<Variable<int_type>>("ONE", 1, 1);
+				variable = Variable<int_type>::ONE;
 				buffer_coeff *= negated ? -1 : 1;
 			} else if(state == varname) {
 				std::string var_name;
@@ -662,7 +729,7 @@ private:
 				ub = compute_bound(rhs);
 				break;
 		}
-		std::shared_ptr<Variable<int_type>> lhs = new_slack_variable(ub, 0);
+		std::shared_ptr<Variable<int_type>> lhs = new_slack_variable(ub, 0, -1);
 		return Constraint<int_type>(lhs, rhs);
 	}
 

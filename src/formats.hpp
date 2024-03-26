@@ -108,9 +108,9 @@ Problem<int_type> read_mps(std::string filename, int_type default_upper_bound = 
 					break;
 				}
 				case RHS: {
-					parse_term(line.substr(14,35), std::make_shared<Variable<int_type>>("ONE", 1, 1), constraint_map, true);
+					parse_term(line.substr(14,35), Variable<int_type>::ONE, constraint_map, true);
 					if(line.size() > 40) {
-						parse_term(line.substr(39), std::make_shared<Variable<int_type>>("ONE", 1, 1), constraint_map, true);
+						parse_term(line.substr(39), Variable<int_type>::ONE, constraint_map, true);
 					}
 					break;
 				}
