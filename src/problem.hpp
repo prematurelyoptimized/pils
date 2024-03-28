@@ -125,6 +125,7 @@ public:
 		if(variables.size() == 0) {
 			return stats;
 		}
+		std::sort(variables.begin(), variables.end(), [](const auto& a, const auto& b){return a->priority < b->priority;});
 		// Check whether we need to check validity of a solution at every step.
 		if(variables[0]->expected_value >= 0) {
 			solution_tracking_enabled = true;
@@ -167,6 +168,18 @@ public:
 
 		// Finally, ensure integrality of the solution
 		while(true) {
+			/*
+			std::cout << *tab << "\n";
+			for(const auto& var : variables) {
+				if(var->is_basic) {
+					std::cout << var->name << '\t' << tab->lhs_values[var->index] << " / " << tab->lhs_coefficients[var->index] << '\n';
+				} else {
+					std::cout << var->name << '\t' << var->value << '\n';
+				}
+			}
+			std::cout << "\n\n\n";
+			*/
+
 			bool done = true;
 			// Start by looking for rows where we have a divisibility failure
 			// (We only want to iterate over the rows that exist *right now*, 
@@ -205,6 +218,22 @@ public:
 				std::cout << "=============================================\n";
 				std::cout << "Elapsed time is " << difftime(time(NULL), starttime) << "\n";
 				std::cout << "Objective value is " << tab->lhs_values[0] << '/' << tab->lhs_coefficients[0] << '\n';
+				size_t first_frac = -1;
+				size_t first_zero = -1;
+				for(size_t it = 0; it < tab->row_headers.size(); ++it) {
+					if(tab->row_headers[it]->priority < first_frac) {
+						if(tab->lhs_values[it] % tab->lhs_coefficients[it] != 0) {
+							first_frac = it;
+						}
+					}
+					if(tab->row_headers[it]->priority < first_zero) {
+						if(tab->lhs_values[it] != 0) {
+							first_zero = it;
+						}
+					}
+				}
+				std::cout << "First non-zero: " << tab->row_headers[first_zero]->name << " = " << tab->lhs_values[first_zero] << '\n';
+				std::cout << "First fraction: " << tab->row_headers[first_frac]->name << " = " << tab->lhs_values[first_frac] << '/' << tab->lhs_coefficients[first_frac] << '\n';
 				std::cout << "Made " << stats.pivots << " pivots\n";
 				std::cout << "Improved " << stats.divisibility_bound_improvements << " bounds\n";
 				std::cout << "Added " << stats.divisibility_cuts << " divisibility cuts\n";
@@ -526,14 +555,21 @@ private:
 
 	bool column_comparator(size_t pivot_row, size_t column1, size_t column2) {
 		// True if column1 <lex< column2
-		size_t comparison_point = tab->row_headers[pivot_row]->priority;
-		bool retval = tab->column_headers[column1]->priority > tab->column_headers[column2]->priority;	// High priorities are lower in lex-ordering
+		size_t comparison_point;
+		bool retval;
+		if(tab->column_headers[column1]->priority < tab->column_headers[column2]->priority) {
+			comparison_point = tab->column_headers[column1]->priority;
+			retval = (tab->column_headers[column1]->pegged_bound == UPPER);
+		} else {
+			comparison_point = tab->column_headers[column2]->priority;
+			retval = (tab->column_headers[column2]->pegged_bound == LOWER);
+		}
 		for(size_t row_idx = 0; row_idx < tab->rows.size(); ++row_idx) {
 			if(tab->row_headers[row_idx]->priority < comparison_point) {
 				// Watch out for overflow
 				int_type denominator = gcd(tab->rows[pivot_row][column2], tab->rows[pivot_row][column1]);
-				int_type comparison = abs(tab->rows[row_idx][column1] * (tab->rows[pivot_row][column2] / denominator))
-								- abs(tab->rows[row_idx][column2] * (tab->rows[pivot_row][column1] / denominator));
+				int_type comparison = tab->rows[row_idx][column1] * abs(tab->rows[pivot_row][column2] / denominator) * tab->column_headers[column1]->pegged_bound
+								- tab->rows[row_idx][column2] * abs(tab->rows[pivot_row][column1] / denominator) * tab->column_headers[column2]->pegged_bound;
 				if(comparison < 0) {
 					retval = true;
 					comparison_point = tab->row_headers[row_idx]->priority;

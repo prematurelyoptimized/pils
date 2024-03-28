@@ -1,5 +1,5 @@
 #ifndef PILS_TABLEAU
-#define PLIS_TABLEAU
+#define PILS_TABLEAU
 
 #include<vector>
 #include<algorithm>
@@ -145,7 +145,7 @@ public:
 
 	void remove_slack_rows(void) {
 		for(size_t row_idx = 0; row_idx < rows.size();/*empty*/) {
-			if(row_headers[row_idx]->is_slack) {
+			if(row_headers[row_idx]->is_slack && lhs_values[row_idx] > 0 && lhs_values[row_idx] < lhs_coefficients[row_idx] * row_headers[row_idx]->upper_bound) {
 				delete_row(row_idx);
 			} else {
 				++row_idx;
@@ -203,6 +203,13 @@ public:
 			lhs_values[row] = evaluate(constants[row], rows[row], column_headers);
 		}
 
+#ifndef NDEBUG
+		if(!validate_lex_minimal()) {
+			std::cout << pivot_row << " \t" << column << '\n';
+			throw std::runtime_error("Bad pivot");
+		}
+#endif
+
 		// Check if the variable that we just pivoted out of the basis is constant
 		if(column_headers[column]->upper_bound == 0) {
 			delete_column(column);
@@ -237,6 +244,24 @@ private:
 				++it;
 			}
 		}
+	}
+
+	bool validate_lex_minimal(void) {
+		for(const auto& it : column_headers) {
+			bool comparison_value = it->pegged_bound == LOWER;
+			size_t comparison_point = it->priority;
+			for(size_t row = 0; row < row_headers.size(); ++row) {
+				if(row_headers[row]->priority < comparison_point && rows[row][it->index] != 0) {
+					comparison_point = row_headers[row]->priority;
+					comparison_value = ((it->pegged_bound == LOWER) && (rows[row][it->index] > 0)) 
+																|| ((it->pegged_bound == UPPER) && (rows[row][it->index] < 0));
+				}
+			}
+			if(comparison_value == false) {
+				return false;
+			}
+		}
+		return true;
 	}
 };
 
